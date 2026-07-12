@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#2c1250">
+<title>BS Açaiteria — Faça seu pedido</title>
+<link rel="icon" href="icon-192.png">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg: #4b1e8c; --card: #2b1150; --card-2: #351464;
+  --yellow: #ffb92e; --purple-pill: #8a63e8; --purple-pill-2: #a888f0;
+  --text-dim: #cbb9ee; --green: #7ee081; --danger:#e05a5a;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; font-family:'Poppins',system-ui,-apple-system,sans-serif;
+  background: radial-gradient(circle at 90% 0%, #6b32c9 0%, var(--bg) 45%, #3a1770 100%);
+  color:#fff; min-height:100vh;
+}
+.app{ max-width:480px; margin:0 auto; padding:16px; padding-bottom:30px; min-height:100vh; display:flex; flex-direction:column; }
+
+.shop-header{ display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+.shop-header img{ width:48px; height:48px; border-radius:50%; border:2px solid var(--yellow); object-fit:cover; }
+.shop-header h2{ margin:0; font-size:1.1rem; }
+.shop-header p{ margin:0; color:var(--text-dim); font-size:.72rem; }
+
+.step-title{ font-size:1.2rem; font-weight:800; margin-bottom:2px; }
+.step-sub{ color:var(--text-dim); font-size:.82rem; margin-bottom:18px; }
+.back-link{ color:var(--text-dim); font-size:.78rem; margin-bottom:10px; cursor:pointer; }
+
+.pill-input{
+  width:100%; background: var(--purple-pill-2); border:none; outline:none;
+  color:#241045; font-weight:600; padding:14px 18px; border-radius:999px; font-size:.9rem; margin-bottom:14px;
+}
+textarea.pill-input{ border-radius:18px; resize:vertical; min-height:50px; }
+.btn-primary{
+  border:none; cursor:pointer; padding:15px; border-radius:999px; background:var(--yellow);
+  color:#2b1150; font-weight:800; font-size:.92rem; width:100%; margin-top:auto;
+}
+.btn-primary:disabled{ opacity:.5; }
+
+.menu-chip-row{ display:flex; gap:6px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px; }
+.menu-chip{ flex-shrink:0; border:none; padding:9px 16px; border-radius:999px; background:var(--purple-pill); color:#fff; font-weight:700; font-size:.78rem; cursor:pointer; }
+.menu-chip.active{ background:var(--yellow); color:#2b1150; }
+
+.menu-card{
+  background: var(--card); border-radius:18px; padding:12px; margin-bottom:10px;
+  display:flex; gap:10px; align-items:center; cursor:pointer; transition:transform .12s ease; position:relative;
+}
+.menu-card:active{ transform: scale(.97); }
+.menu-card .photo{
+  width:54px; height:54px; border-radius:14px; background: var(--purple-pill-2);
+  display:flex; align-items:center; justify-content:center; font-size:1.5rem; flex-shrink:0; object-fit:cover;
+}
+.menu-card .info{ flex:1; }
+.menu-card .info .nome{ font-weight:700; font-size:.85rem; }
+.menu-card .info .desc{ color:var(--text-dim); font-size:.68rem; margin-top:2px; }
+.menu-card .preco{ font-weight:900; color:var(--yellow); font-size:.85rem; }
+.menu-card .qty-badge{ position:absolute; top:-6px; right:-6px; background:var(--green); color:#0e3d16; border-radius:999px; padding:2px 9px; font-size:.68rem; font-weight:900; }
+
+.cart-bar{
+  position:sticky; bottom:12px; background: linear-gradient(90deg, var(--yellow), #ffcf6b);
+  color:#2b1150; border-radius:999px; padding:15px 20px; display:flex; justify-content:space-between;
+  align-items:center; font-weight:800; margin-top:14px; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,.4);
+}
+.cart-bar.disabled{ opacity:.4; pointer-events:none; }
+
+/* Copo builder */
+.cup-visual{ display:flex; justify-content:center; margin: 6px 0 14px; }
+.cup{ width:90px; height:100px; position:relative; background:var(--purple-pill-2); clip-path: polygon(15% 0%, 85% 0%, 78% 100%, 22% 100%); overflow:hidden; }
+.cup::before{ content:''; position:absolute; top:0; left:0; right:0; height:11px; background:var(--purple-pill); }
+.cup-liquid{ position:absolute; left:0; right:0; bottom:0; background: linear-gradient(180deg, #7a4bd6, #5a2fb0); transition: height .3s ease; }
+.size-row{ display:flex; gap:8px; margin-bottom:16px; }
+.size-card{ flex:1; border:2px solid transparent; cursor:pointer; background:var(--card); border-radius:16px; padding:12px 6px; text-align:center; }
+.size-card.active{ border-color: var(--yellow); background: var(--card-2); }
+.size-card .lbl{ font-weight:800; font-size:.85rem; }
+.size-card .preco{ color:var(--yellow); font-size:.75rem; margin-top:2px; }
+.section-label{ font-size:.76rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:.5px; margin: 6px 0 10px; }
+.adic-grid{ display:grid; grid-template-columns: repeat(2,1fr); gap:8px; margin-bottom:14px; }
+.adic-card{ position:relative; cursor:pointer; background:var(--card); border-radius:14px; padding:10px; display:flex; flex-direction:column; gap:2px; }
+.adic-card.selected{ background: var(--green); }
+.adic-card.selected .nome, .adic-card.selected .preco{ color:#0e3d16; }
+.adic-card .nome{ font-weight:700; font-size:.78rem; }
+.adic-card .preco{ color:var(--yellow); font-size:.7rem; }
+.adic-card .qty-badge{ position:absolute; top:-6px; right:-6px; background:var(--yellow); color:#2b1150; border-radius:999px; padding:2px 8px; font-size:.65rem; font-weight:900; }
+
+.cart-item{ display:flex; justify-content:space-between; align-items:flex-start; background:var(--card); border-radius:14px; padding:10px 14px; margin-bottom:8px; font-size:.82rem; }
+.cart-item .obs{ color:var(--text-dim); font-size:.7rem; font-style:italic; margin-top:2px; }
+.cart-item .remove{ border:none; background:var(--danger); color:#fff; width:22px; height:22px; border-radius:50%; font-size:.7rem; cursor:pointer; flex-shrink:0; margin-left:8px; }
+.total-row{ display:flex; justify-content:space-between; font-size:1.05rem; font-weight:800; margin:14px 0; padding-top:12px; border-top:1px dashed rgba(255,255,255,.2); }
+.pay-row{ display:flex; gap:8px; margin-bottom:18px; }
+.pay-chip{ flex:1; border:none; padding:14px 6px; border-radius:14px; background:var(--purple-pill); color:#fff; font-weight:700; font-size:.76rem; cursor:pointer; }
+.pay-chip.active{ background:var(--yellow); color:#2b1150; }
+
+.confirm-wrap{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.confirm-icon{ font-size:3.2rem; margin-bottom:10px; }
+.confirm-wrap h2{ margin:0 0 8px; font-size:1.2rem; }
+.confirm-wrap p{ color:var(--text-dim); font-size:.82rem; line-height:1.5; }
+.status-badge{ background:rgba(255,185,46,.15); color:var(--yellow); border:1px solid var(--yellow); padding:8px 18px; border-radius:999px; font-size:.75rem; font-weight:700; margin-top:14px; }
+.pix-card{ background: var(--card); border-radius:18px; padding:18px; margin-top:16px; width:100%; text-align:center; border: 1px dashed var(--yellow); }
+.pix-card .label{ color:var(--text-dim); font-size:.72rem; margin-bottom:6px; }
+.pix-key{ background:rgba(255,255,255,.08); border-radius:12px; padding:10px; font-family:monospace; font-size:.82rem; word-break:break-all; margin-bottom:10px; }
+.copy-btn{ border:none; background:var(--yellow); color:#2b1150; font-weight:800; padding:8px 18px; border-radius:999px; font-size:.75rem; cursor:pointer; }
+.empty-note{ color:var(--text-dim); font-size:.85rem; padding:10px 6px; text-align:center; }
+.loading{ text-align:center; padding:60px 20px; color:var(--text-dim); }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="loading">🍇 Carregando cardápio...</div>
+</div>
+
+<script>
+/* ==================== FIREBASE ==================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyBfHQxqIdxnOqPPntri7vlruzdrtj1fb-4",
+  authDomain: "acai01-a9548.firebaseapp.com",
+  projectId: "acai01-a9548",
+  storageBucket: "acai01-a9548.firebasestorage.app",
+  messagingSenderId: "226894833989",
+  appId: "1:226894833989:web:cb1cf1b6e73d2e283a762c",
+  measurementId: "G-QPSWKDWBRD"
+};
+firebase.initializeApp(firebaseConfig);
+const fdb = firebase.firestore();
+
+/* ==================== ESTADO ==================== */
+const state = {
+  nome: '', telefone: '', pay: 'Dinheiro',
+  cart: [], // {refId, tipo, nome, preco, qtd, obs, custo, composicao}
+  step: 1,
+  cat: 'preparado',
+  builderSize: null, builderTaps: []
+};
+const data = { produtos: [], avulsos: [], adicionais: [], config: { tamanhos: [], chavePix: '' } };
+
+function brl(v) { return (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
+
+/* ==================== CARREGAR DADOS (leitura, sem escrever nada) ==================== */
+Promise.all([
+  fdb.collection('produtos').get(),
+  fdb.collection('produtosAvulsos').get(),
+  fdb.collection('estoque').get(),
+  fdb.collection('config').doc('geral').get()
+]).then(([produtosSnap, avulsosSnap, estoqueSnap, configSnap]) => {
+  data.produtos = produtosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  data.avulsos = avulsosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const estoque = estoqueSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  data.adicionais = estoque.filter(i => i.isAdicional);
+  data.estoqueAll = estoque;
+  if (configSnap.exists) data.config = { ...data.config, ...configSnap.data() };
+  if (!data.config.tamanhos || !data.config.tamanhos.length) {
+    data.config.tamanhos = [{ key:'300ml', label:'300ml', preco:15 }, { key:'500ml', label:'500ml', preco:20 }, { key:'750ml', label:'750ml', preco:25 }];
+  }
+  render();
+}).catch(err => {
+  document.getElementById('app').innerHTML = `<div class="loading">⚠️ Não foi possível carregar o cardápio agora.<br><small>${err.message}</small></div>`;
+});
+
+/* ==================== HELPERS DE CARRINHO ==================== */
+function emojiOrPhoto(item) {
+  if (item.foto) return `<img class="photo" src="${item.foto}">`;
+  const emojis = (item.emojis && item.emojis.length) ? item.emojis.join('') : '🍇';
+  return `<div class="photo">${emojis}</div>`;
+}
+
+function addPreparado(p) {
+  const existing = state.cart.find(c => c.refId === p.id && c.tipo === 'preparado');
+  if (existing) existing.qtd++;
+  else state.cart.push({
+    refId: p.id, tipo: 'preparado', nome: p.nome, preco: p.preco, qtd: 1, obs: '', custo: p.custo || 0,
+    composicao: (p.receita || []).map(r => ({ estoqueId: r.estoqueId, porcaoQtd: r.qtd }))
+  });
+  render();
+}
+
+function addAvulso(a) {
+  const existing = state.cart.find(c => c.refId === a.id && c.tipo === 'produto-avulso');
+  if (existing) existing.qtd++;
+  else state.cart.push({
+    refId: a.id, tipo: 'produto-avulso', nome: a.nome, preco: a.preco, qtd: 1, obs: '', custo: a.custoUnit || 0,
+    composicao: [{ estoqueId: a.estoqueId, porcaoQtd: 1 }]
+  });
+  render();
+}
+
+function commitCup() {
+  if (!state.builderSize) { alert('Escolha o tamanho do copo primeiro.'); return; }
+  const sizeDef = data.config.tamanhos.find(s => s.key === state.builderSize);
+  const nomesAdicionais = state.builderTaps.map(id => (data.adicionais.find(a => a.id === id) || {}).nome).filter(Boolean);
+  const adTotal = state.builderTaps.reduce((s, id) => { const a = data.adicionais.find(x => x.id === id); return s + (a ? a.precoAdicional : 0); }, 0);
+  const custo = state.builderTaps.reduce((s, id) => {
+    const a = data.adicionais.find(x => x.id === id); if (!a) return s;
+    const custoUnit = a.quantidade > 0 ? (a.valor / a.quantidade) : 0;
+    return s + custoUnit * a.porcaoQtd;
+  }, 0);
+  const composicao = state.builderTaps.map(id => {
+    const a = data.adicionais.find(x => x.id === id);
+    return { estoqueId: id, porcaoQtd: a ? a.porcaoQtd : 0 };
+  });
+  state.cart.push({
+    refId: 'copo-' + Date.now(), tipo: 'copo-personalizado',
+    nome: `Açaí ${sizeDef.label}` + (nomesAdicionais.length ? ' + ' + nomesAdicionais.join(' + ') : ''),
+    preco: sizeDef.preco + adTotal, qtd: 1, obs: '', custo, composicao
+  });
+  state.builderSize = null; state.builderTaps = [];
+  render();
+}
+
+function cartTotal() { return state.cart.reduce((s, i) => s + i.preco * i.qtd, 0); }
+function cartCount() { return state.cart.reduce((s, i) => s + i.qtd, 0); }
+
+/* ==================== RENDERIZAÇÃO ==================== */
+function render() {
+  const el = document.getElementById('app');
+
+  if (state.step === 1) {
+    el.innerHTML = `
+      <div class="shop-header"><img src="logo-small.png" onerror="this.style.display='none'"><div><h2>BS Açaiteria</h2><p>Faça seu pedido pelo celular</p></div></div>
+      <div class="step-title">Qual é o seu nome?</div>
+      <div class="step-sub">Assim conseguimos chamar você quando o pedido estiver pronto.</div>
+      <input class="pill-input" id="nomeInput" placeholder="Digite seu nome" value="${state.nome}">
+      <button class="btn-primary" id="btnContinuar1">Continuar</button>`;
+    document.getElementById('btnContinuar1').addEventListener('click', () => {
+      state.nome = document.getElementById('nomeInput').value.trim() || 'Cliente';
+      state.step = 2; render();
+    });
+    return;
+  }
+
+  if (state.step === 2) {
+    el.innerHTML = `
+      <div class="shop-header"><img src="logo-small.png" onerror="this.style.display='none'"><div><h2>Olá, ${state.nome}!</h2><p>Toque para adicionar ao pedido</p></div></div>
+      <div class="menu-chip-row" id="catRow">
+        <button class="menu-chip ${state.cat === 'preparado' ? 'active' : ''}" data-cat="preparado">🍇 Copos prontos</button>
+        <button class="menu-chip ${state.cat === 'criar' ? 'active' : ''}" data-cat="criar">🥣 Monte o seu</button>
+        <button class="menu-chip ${state.cat === 'produtos' ? 'active' : ''}" data-cat="produtos">🥤 Produtos</button>
+      </div>
+      <div id="menuArea"></div>
+      <div class="cart-bar ${state.cart.length ? '' : 'disabled'}" id="cartBar">
+        <span>🛒 ${cartCount()} item(ns)</span>
+        <span>${brl(cartTotal())}</span>
+      </div>`;
+    document.getElementById('catRow').addEventListener('click', e => {
+      const btn = e.target.closest('.menu-chip'); if (!btn) return;
+      state.cat = btn.dataset.cat; render();
+    });
+    document.getElementById('cartBar').addEventListener('click', () => { if (state.cart.length) { state.step = 3; render(); } });
+    renderMenuArea();
+    return;
+  }
+
+  if (state.step === 3) {
+    el.innerHTML = `
+      <div class="back-link" id="backToMenu">← Voltar ao cardápio</div>
+      <div class="step-title">Seu pedido</div>
+      <div id="cartList"></div>
+      <div class="total-row"><span>Total</span><span>${brl(cartTotal())}</span></div>
+      <button class="btn-primary" id="btnContinuar3">Continuar</button>`;
+    document.getElementById('backToMenu').addEventListener('click', () => { state.step = 2; render(); });
+    document.getElementById('btnContinuar3').addEventListener('click', () => { state.step = 4; render(); });
+    const cartList = document.getElementById('cartList');
+    if (!state.cart.length) cartList.innerHTML = '<div class="empty-note">Carrinho vazio.</div>';
+    state.cart.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'cart-item';
+      row.innerHTML = `<div><b>${item.qtd}x</b> ${item.nome}<div class="obs">${brl(item.preco)} cada</div></div><span style="display:flex;align-items:center;">${brl(item.preco * item.qtd)}<button class="remove" data-rm="${idx}">✕</button></span>`;
+      cartList.appendChild(row);
+    });
+    cartList.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+      state.cart.splice(parseInt(b.dataset.rm), 1); render();
+    }));
+    return;
+  }
+
+  if (state.step === 4) {
+    el.innerHTML = `
+      <div class="back-link" id="backToCart">← Voltar</div>
+      <div class="step-title">Seu telefone</div>
+      <div class="step-sub">Pra gente chamar você quando estiver pronto.</div>
+      <input class="pill-input" id="telInput" placeholder="(00) 00000-0000" value="${state.telefone}">
+      <button class="btn-primary" id="btnContinuar4">Continuar</button>`;
+    document.getElementById('backToCart').addEventListener('click', () => { state.step = 3; render(); });
+    document.getElementById('btnContinuar4').addEventListener('click', () => {
+      state.telefone = document.getElementById('telInput').value.trim();
+      state.step = 5; render();
+    });
+    return;
+  }
+
+  if (state.step === 5) {
+    el.innerHTML = `
+      <div class="back-link" id="backToTel">← Voltar</div>
+      <div class="step-title">Forma de pagamento</div>
+      <div class="step-sub">Como você vai pagar no caixa?</div>
+      <div class="pay-row" id="payRow">
+        <button class="pay-chip ${state.pay==='Dinheiro'?'active':''}" data-pay="Dinheiro">💵 Dinheiro</button>
+        <button class="pay-chip ${state.pay==='Pix'?'active':''}" data-pay="Pix">📱 Pix</button>
+        <button class="pay-chip ${state.pay==='Cartão'?'active':''}" data-pay="Cartão">💳 Cartão</button>
+      </div>
+      <div class="total-row"><span>Total do pedido</span><span>${brl(cartTotal())}</span></div>
+      <button class="btn-primary" id="btnFinalizar">✅ Finalizar pedido</button>`;
+    document.getElementById('backToTel').addEventListener('click', () => { state.step = 4; render(); });
+    document.getElementById('payRow').addEventListener('click', e => {
+      const btn = e.target.closest('.pay-chip'); if (!btn) return;
+      state.pay = btn.dataset.pay; render();
+    });
+    document.getElementById('btnFinalizar').addEventListener('click', finalizarPedido);
+    return;
+  }
+
+  if (state.step === 6) {
+    el.innerHTML = `
+      <div class="confirm-wrap">
+        <div class="confirm-icon">🍇</div>
+        <h2>Pedido enviado!</h2>
+        <p>Obrigado, ${state.nome}! Seu pedido de <b>${brl(cartTotal())}</b> via <b>${state.pay}</b> foi enviado pro balcão.</p>
+        <div class="status-badge">⏳ Aguardando confirmação de pagamento</div>
+        ${state.pay === 'Pix' && data.config.chavePix ? `
+          <div class="pix-card">
+            <div class="label">Chave Pix da loja</div>
+            <div class="pix-key" id="pixKeyText">${data.config.chavePix}</div>
+            <button class="copy-btn" id="copyPixBtn">Copiar chave</button>
+          </div>` : ''}
+      </div>`;
+    const copyBtn = document.getElementById('copyPixBtn');
+    if (copyBtn) copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(data.config.chavePix).then(() => { copyBtn.textContent = 'Copiado ✓'; });
+    });
+    return;
+  }
+}
+
+function renderMenuArea() {
+  const area = document.getElementById('menuArea');
+  if (state.cat === 'preparado') {
+    area.innerHTML = '';
+    if (!data.produtos.length) { area.innerHTML = '<div class="empty-note">Nenhum copo preparado disponível no momento.</div>'; return; }
+    data.produtos.forEach(p => {
+      const inCart = state.cart.find(c => c.refId === p.id && c.tipo === 'preparado');
+      const card = document.createElement('div');
+      card.className = 'menu-card';
+      card.innerHTML = `${emojiOrPhoto(p)}<div class="info"><div class="nome">${p.nome}</div><div class="desc">${p.tamanho || ''}</div><div class="preco">${brl(p.preco)}</div></div>${inCart ? `<span class="qty-badge">x${inCart.qtd}</span>` : ''}`;
+      card.addEventListener('click', () => addPreparado(p));
+      area.appendChild(card);
+    });
+  }
+  if (state.cat === 'produtos') {
+    area.innerHTML = '';
+    if (!data.avulsos.length) { area.innerHTML = '<div class="empty-note">Nenhum produto disponível no momento.</div>'; return; }
+    data.avulsos.forEach(a => {
+      const inCart = state.cart.find(c => c.refId === a.id && c.tipo === 'produto-avulso');
+      const card = document.createElement('div');
+      card.className = 'menu-card';
+      card.innerHTML = `${emojiOrPhoto(a)}<div class="info"><div class="nome">${a.nome}</div><div class="preco">${brl(a.preco)}</div></div>${inCart ? `<span class="qty-badge">x${inCart.qtd}</span>` : ''}`;
+      card.addEventListener('click', () => addAvulso(a));
+      area.appendChild(card);
+    });
+  }
+  if (state.cat === 'criar') {
+    const sizes = data.config.tamanhos;
+    const fillPct = state.builderSize === '300ml' ? 55 : state.builderSize === '500ml' ? 75 : state.builderSize === '750ml' ? 95 : 0;
+    area.innerHTML = `
+      <div class="cup-visual"><div class="cup"><div class="cup-liquid" style="height:${fillPct}%"></div></div></div>
+      <div class="section-label">Tamanho</div>
+      <div class="size-row" id="sizeRow"></div>
+      <div class="section-label">Adicionais</div>
+      <div class="adic-grid" id="adicGrid"></div>
+      <button class="btn-primary" id="btnAddCup" style="margin-top:6px;">🍇 Adicionar copo — ${brl((state.builderSize ? sizes.find(s=>s.key===state.builderSize).preco : 0) + state.builderTaps.reduce((s,id)=>{const a=data.adicionais.find(x=>x.id===id);return s+(a?a.precoAdicional:0);},0))}</button>`;
+    const sizeRow = document.getElementById('sizeRow');
+    sizes.forEach(s => {
+      const card = document.createElement('div');
+      card.className = 'size-card' + (state.builderSize === s.key ? ' active' : '');
+      card.innerHTML = `<div class="lbl">${s.label}</div><div class="preco">${brl(s.preco)}</div>`;
+      card.addEventListener('click', () => { state.builderSize = s.key; renderMenuArea(); });
+      sizeRow.appendChild(card);
+    });
+    const adicGrid = document.getElementById('adicGrid');
+    if (!data.adicionais.length) { adicGrid.innerHTML = '<div class="empty-note">Nenhum adicional disponível.</div>'; }
+    data.adicionais.forEach(a => {
+      const count = state.builderTaps.filter(id => id === a.id).length;
+      const card = document.createElement('div');
+      card.className = 'adic-card' + (count > 0 ? ' selected' : '');
+      const emojis = (a.emojis && a.emojis.length) ? a.emojis.join('') + ' ' : '';
+      card.innerHTML = `<span class="nome">${emojis}${a.nome}</span><span class="preco">${brl(a.precoAdicional)}</span>${count > 0 ? `<span class="qty-badge">x${count}</span>` : ''}`;
+      card.addEventListener('click', () => { state.builderTaps.push(a.id); renderMenuArea(); });
+      adicGrid.appendChild(card);
+    });
+    document.getElementById('btnAddCup').addEventListener('click', commitCup);
+  }
+}
+
+function finalizarPedido() {
+  const btn = document.getElementById('btnFinalizar');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const pedido = {
+    nome: state.nome, telefone: state.telefone, itens: state.cart,
+    total: cartTotal(), formaPagamento: state.pay,
+    status: 'pendente', prontoCozinha: false,
+    criadoEm: new Date().toISOString()
+  };
+  fdb.collection('pedidosCliente').add(pedido)
+    .then(() => { state.step = 6; render(); })
+    .catch(err => { alert('Não foi possível enviar o pedido: ' + err.message); btn.disabled = false; btn.textContent = '✅ Finalizar pedido'; });
+}
+</script>
+</body>
+</html>
