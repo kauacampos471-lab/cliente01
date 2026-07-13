@@ -569,12 +569,12 @@ function render() {
       ${progressBar()}
       <div class="glass-card anim-in">
         <div class="step-title">Quase lá!</div>
-        <div class="step-sub">Precisamos do seu nome e telefone pra te chamar quando o pedido estiver pronto.</div>
+        <div class="step-sub">Precisamos do seu nome e telefone.</div>
         <div class="field-label">Seu nome</div>
         <input class="pill-input" id="nomeInput" placeholder="Digite seu nome" value="${state.nome}">
         <div class="field-label">Seu telefone</div>
         <input class="pill-input" id="telInput" type="tel" inputmode="numeric" placeholder="(00)0.0000-0000" value="${state.telefone}">
-        <div class="hint">Só números — a formatação é automática</div>
+        <div class="hint">Só números</div>
         <button class="btn-primary ripple" id="btnContinuar3" disabled>Continuar →</button>
       </div>`;
     document.getElementById('backToCart').addEventListener('click', () => { state.step = 2; render(); });
